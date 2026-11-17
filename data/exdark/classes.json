@@ -1,0 +1,80 @@
+{
+  "dataset": "ExDark",
+  "full_name": "Exclusively Dark Image Dataset",
+  "total_classes": 12,
+  "classes": [
+    {
+      "id": 0,
+      "name": "Bicycle",
+      "color": "#3B82F6",
+      "description": "Bicycles and pedal cycles in low-light environments"
+    },
+    {
+      "id": 1,
+      "name": "Boat",
+      "color": "#06B6D4",
+      "description": "Boats, ships, and water vessels"
+    },
+    {
+      "id": 2,
+      "name": "Bottle",
+      "color": "#10B981",
+      "description": "Bottles of various sizes and materials"
+    },
+    {
+      "id": 3,
+      "name": "Bus",
+      "color": "#F59E0B",
+      "description": "Public transit buses, coaches, and minibuses"
+    },
+    {
+      "id": 4,
+      "name": "Car",
+      "color": "#EF4444",
+      "description": "Automobiles, sedans, SUVs, and passenger vehicles"
+    },
+    {
+      "id": 5,
+      "name": "Cat",
+      "color": "#EC4899",
+      "description": "Domestic cats in low-light indoor/outdoor scenes"
+    },
+    {
+      "id": 6,
+      "name": "Chair",
+      "color": "#8B5CF6",
+      "description": "Chairs, stools, and single-person seating"
+    },
+    {
+      "id": 7,
+      "name": "Cup",
+      "color": "#14B8A6",
+      "description": "Cups, mugs, and drinking containers"
+    },
+    {
+      "id": 8,
+      "name": "Dog",
+      "color": "#F97316",
+      "description": "Canines in indoor and nighttime conditions"
+    },
+    {
+      "id": 9,
+      "name": "Motorbike",
+      "color": "#6366F1",
+      "description": "Motorcycles, scooters, and mopeds"
+    },
+    {
+      "id": 10,
+      "name": "People",
+      "color": "#22C55E",
+      "description": "Pedestrians, standing, sitting, or walking people"
+    },
+    {
+      "id": 11,
+      "name": "Table",
+      "color": "#A855F7",
+      "description": "Dining tables, desks, and low tables"
+    }
+  ]
+}
+
