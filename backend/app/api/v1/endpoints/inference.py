@@ -7,6 +7,7 @@ import cv2
 from pathlib import Path
 from app.ml.enhancement.clahe import CLAHEEnhancer, calculate_shannon_entropy
 from app.ml.enhancement.zero_dce import ZeroDCEEnhancer
+from app.ml.enhancement.retinexformer import RetinexformerEnhancer
 
 router = APIRouter()
 
@@ -16,6 +17,10 @@ clahe_enhancer = CLAHEEnhancer(clip_limit=3.0, tile_grid_size=(8, 8))
 # Checkpoint path for Zero-DCE (located in app/ml/weights/zero_dce.pth)
 ZERO_DCE_WEIGHTS = str(Path(__file__).resolve().parents[3] / "ml" / "weights" / "zero_dce.pth")
 zero_dce_enhancer = ZeroDCEEnhancer(weights_path=ZERO_DCE_WEIGHTS)
+
+# Checkpoint path for Retinexformer (located in app/ml/weights/retinexformer.pth)
+RETINEXFORMER_WEIGHTS = str(Path(__file__).resolve().parents[3] / "ml" / "weights" / "retinexformer.pth")
+retinexformer_enhancer = RetinexformerEnhancer(weights_path=RETINEXFORMER_WEIGHTS)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -32,12 +37,12 @@ def encode_image_to_base64_url(image_rgb: np.ndarray, format_ext: str = ".jpg") 
 
 
 @router.post("/inference/analyze", tags=["Inference"])
-async def analyze_image(
+def analyze_image(
     file: UploadFile = File(..., description="Dark low-light image file (JPEG or PNG)")
 ):
     """
-    Accepts a dark image, processes it through CLAHE and Zero-DCE on the same original frame,
-    measures processing latencies separately, and returns comparative data.
+    Accepts a dark image, processes it through CLAHE, Zero-DCE, and Retinexformer on the same original frame.
+    Runs in a worker thread so the main asyncio event loop remains fully responsive for health checks.
     """
     # 1. Validate file extension
     filename = file.filename or "upload.jpg"
@@ -50,7 +55,7 @@ async def analyze_image(
 
     # 2. Read and decode original image buffer
     try:
-        contents = await file.read()
+        contents = file.file.read()
         nparr = np.frombuffer(contents, np.uint8)
         img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img_bgr is None:
@@ -118,18 +123,50 @@ async def analyze_image(
             "description": "Zero-DCE pretrained weights not found on server."
         }
 
-    # 6. Condition 4: Retinexformer (Marked as pending)
-    retinex_condition: Dict[str, Any] = {
-        "id": "retinexformer",
-        "condition_index": 4,
-        "name": "Condition 4: Retinexformer",
-        "method": "Transformer Attention",
-        "status": "pending",
-        "badge": "Model setup pending",
-        "latency_ms": None,
-        "image_url": None,
-        "description": "State-of-the-art Retinex transformer with Illumination-Guided Self-Attention."
-    }
+    # 6. Condition 4: Retinexformer Enhancement (with robust error / fallback handling)
+    if retinexformer_enhancer.is_loaded:
+        try:
+            enhanced_retinex_rgb, retinex_latency_ms, retinex_meta = retinexformer_enhancer.enhance(img_rgb)
+            retinex_data_url = encode_image_to_base64_url(enhanced_retinex_rgb, ext if ext in [".jpg", ".png"] else ".jpg")
+            retinex_condition: Dict[str, Any] = {
+                "id": "retinexformer",
+                "condition_index": 4,
+                "name": "Condition 4: Retinexformer",
+                "method": "Illumination-Guided Transformer (ICCV 2023)",
+                "status": "ready",
+                "image_url": retinex_data_url,
+                "latency_ms": retinex_latency_ms,
+                "entropy": retinex_meta["enhanced_entropy"],
+                "entropy_gain": retinex_meta["entropy_gain"],
+                "device": retinex_meta["device"],
+                "description": "One-stage Retinex Transformer with Illumination-Guided Self-Attention."
+            }
+        except Exception as retinex_err:
+            retinex_condition = {
+                "id": "retinexformer",
+                "condition_index": 4,
+                "name": "Condition 4: Retinexformer",
+                "method": "Illumination-Guided Transformer",
+                "status": "failed",
+                "badge": "Inference error",
+                "error_message": f"Retinexformer inference failed: {str(retinex_err)}",
+                "latency_ms": None,
+                "image_url": None,
+                "description": "Retinexformer inference encountered an execution error."
+            }
+    else:
+        retinex_condition = {
+            "id": "retinexformer",
+            "condition_index": 4,
+            "name": "Condition 4: Retinexformer",
+            "method": "Illumination-Guided Transformer",
+            "status": "unavailable",
+            "badge": "Checkpoint missing",
+            "error_message": retinexformer_enhancer.load_error or "Retinexformer checkpoint file missing.",
+            "latency_ms": None,
+            "image_url": None,
+            "description": "Retinexformer pretrained weights not found on server."
+        }
 
     # 7. Assemble 4 comparative conditions
     conditions: List[Dict[str, Any]] = [

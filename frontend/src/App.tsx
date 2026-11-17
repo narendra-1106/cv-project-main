@@ -28,7 +28,7 @@ export default function App() {
   const fetchBackendHealth = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setRefreshing(true);
-    } else {
+    } else if (!health) {
       setLoading(true);
     }
     
@@ -38,13 +38,16 @@ export default function App() {
       setError(null);
       setLastChecked(new Date());
     } catch (err: any) {
-      setError(err as ApiError);
-      setHealth(null);
+      // If we already had a healthy state, keep it unless manual refresh fails
+      if (isManualRefresh || !health) {
+        setError(err as ApiError);
+        setHealth(null);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [health]);
 
   useEffect(() => {
     fetchBackendHealth();
@@ -113,7 +116,7 @@ export default function App() {
                   LUXVISION AI
                 </span>
                 <span className="ml-2 text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                  Phase 4
+                  Phase 5
                 </span>
               </div>
             </div>
@@ -355,7 +358,7 @@ export default function App() {
                   <span>
                     {lastChecked ? `Synced ${lastChecked.toLocaleTimeString()}` : 'Synchronizing...'}
                   </span>
-                  <span className="text-cyan-400 font-medium">Phase 4 Integrated</span>
+                  <span className="text-purple-400 font-medium">Phase 5 Integrated (All 4 Conditions)</span>
                 </div>
               </div>
             </div>

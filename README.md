@@ -198,7 +198,7 @@ pip install -r requirements.txt
 
 ### Step 4: Download Model Weights
 
-#### Zero-DCE Checkpoint (Required for Phase 4)
+#### Zero-DCE Checkpoint (Condition 3)
 
 The Zero-DCE pretrained weights come from the **official repository** by Li Chongyi et al. (CVPR 2020):
 
@@ -215,6 +215,28 @@ The Zero-DCE pretrained weights come from the **official repository** by Li Chon
 ```bash
 cd backend
 python download_zero_dce_weights.py
+```
+
+#### Retinexformer Checkpoint (Condition 4)
+
+The Retinexformer pretrained weights come from the **official repository** by Cai et al. (ICCV 2023):
+
+| Property | Value |
+| :--- | :--- |
+| **Paper** | Retinexformer: One-stage Retinex-based Transformer for Low-light Image Enhancement (ICCV 2023) |
+| **Authors** | Yuanhao Cai, Hao Bian, Jing Lin, Haoqian Wang, Radu Timofte, Yulun Zhang |
+| **GitHub** | [github.com/caiyuanhao1998/Retinexformer](https://github.com/caiyuanhao1998/Retinexformer) |
+| **Hugging Face** | [CaiYuanhao/Retinexformer](https://huggingface.co/CaiYuanhao/Retinexformer) (`LOL_v1.pth`) |
+| **Architecture** | Illumination Estimator + Illumination-Guided Multi-Head Self-Attention (IG-MSA) |
+| **Destination** | `backend/app/ml/weights/retinexformer.pth` (6.18 MB) |
+
+**Automated download via Python:**
+```python
+from huggingface_hub import hf_hub_download
+import shutil
+
+path = hf_hub_download(repo_id="CaiYuanhao/Retinexformer", filename="LOL_v1.pth")
+shutil.copy(path, "backend/app/ml/weights/retinexformer.pth")
 ```
 
 **Manual download** (if automated download fails):

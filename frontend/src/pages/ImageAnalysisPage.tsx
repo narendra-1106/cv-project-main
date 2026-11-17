@@ -17,7 +17,12 @@ import { analysisService } from '../services/analysisService';
 import { AnalysisResponse, ConditionResult } from '../types/analysis';
 import { ImageCompareSlider } from '../components/comparison/ImageCompareSlider';
 
-type SliderComparisonMode = 'orig-vs-clahe' | 'orig-vs-zerodce' | 'clahe-vs-zerodce';
+type SliderComparisonMode = 
+  | 'orig-vs-clahe' 
+  | 'orig-vs-zerodce' 
+  | 'orig-vs-retinex'
+  | 'clahe-vs-zerodce'
+  | 'zerodce-vs-retinex';
 
 export function ImageAnalysisPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -133,6 +138,7 @@ export function ImageAnalysisPage() {
   const originalCondition = analysisResult?.conditions.find((c) => c.id === 'original');
   const claheCondition = analysisResult?.conditions.find((c) => c.id === 'clahe');
   const zeroDceCondition = analysisResult?.conditions.find((c) => c.id === 'zero_dce');
+  const retinexCondition = analysisResult?.conditions.find((c) => c.id === 'retinexformer');
 
   // Determine current images for slider based on active sliderMode
   let sliderLeftImg = originalCondition?.image_url || '';
@@ -149,6 +155,13 @@ export function ImageAnalysisPage() {
     sliderRightLabel = 'Condition 3: Zero-DCE Enhanced';
     sliderLatency = zeroDceCondition.latency_ms;
     sliderEntropyGain = zeroDceCondition.entropy_gain;
+  } else if (sliderMode === 'orig-vs-retinex' && retinexCondition?.image_url) {
+    sliderLeftImg = originalCondition?.image_url || '';
+    sliderRightImg = retinexCondition.image_url;
+    sliderLeftLabel = 'Condition 1: Original Low-Light';
+    sliderRightLabel = 'Condition 4: Retinexformer Enhanced';
+    sliderLatency = retinexCondition.latency_ms;
+    sliderEntropyGain = retinexCondition.entropy_gain;
   } else if (sliderMode === 'clahe-vs-zerodce' && claheCondition?.image_url && zeroDceCondition?.image_url) {
     sliderLeftImg = claheCondition.image_url;
     sliderRightImg = zeroDceCondition.image_url;
@@ -156,6 +169,13 @@ export function ImageAnalysisPage() {
     sliderRightLabel = 'Condition 3: Zero-DCE (Deep Curves)';
     sliderLatency = zeroDceCondition.latency_ms;
     sliderEntropyGain = zeroDceCondition.entropy_gain;
+  } else if (sliderMode === 'zerodce-vs-retinex' && zeroDceCondition?.image_url && retinexCondition?.image_url) {
+    sliderLeftImg = zeroDceCondition.image_url;
+    sliderRightImg = retinexCondition.image_url;
+    sliderLeftLabel = 'Condition 3: Zero-DCE (Curves)';
+    sliderRightLabel = 'Condition 4: Retinexformer (SOTA)';
+    sliderLatency = retinexCondition.latency_ms;
+    sliderEntropyGain = retinexCondition.entropy_gain;
   }
 
   return (
@@ -164,12 +184,12 @@ export function ImageAnalysisPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
           <span>Image Analysis & Multi-Condition Enhancement</span>
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
-            Phase 4: Zero-DCE Active
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-400 border border-purple-800 font-mono">
+            Phase 5: All 4 Conditions Active
           </span>
         </h2>
         <p className="text-sm text-slate-400 mt-1">
-          Upload any dark low-light image to evaluate three parallel views: Original, CLAHE, and Zero-DCE, with Retinexformer pending.
+          Upload any dark low-light image to evaluate all four benchmark conditions simultaneously: Original, CLAHE, Zero-DCE, and Retinexformer.
         </p>
       </div>
 
@@ -263,7 +283,7 @@ export function ImageAnalysisPage() {
                     {isAnalyzing ? (
                       <>
                         <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span>Running CLAHE & Zero-DCE...</span>
+                        <span>Running All 4 Enhancements (CLAHE, Zero-DCE & Retinexformer)...</span>
                       </>
                     ) : (
                       <>
@@ -331,7 +351,7 @@ export function ImageAnalysisPage() {
                   }`}
                 >
                   <Columns className="w-3.5 h-3.5" />
-                  <span>Side-by-Side (3 Views)</span>
+                  <span>Side-by-Side (4 Views)</span>
                 </button>
               </div>
 
@@ -345,21 +365,23 @@ export function ImageAnalysisPage() {
             </div>
           </div>
 
-          {/* Warning Banner if Zero-DCE failed/missing */}
-          {zeroDceCondition && zeroDceCondition.status !== 'ready' && (
+          {/* Warning Banner if Zero-DCE or Retinexformer failed/missing */}
+          {((zeroDceCondition && zeroDceCondition.status !== 'ready') || (retinexCondition && retinexCondition.status !== 'ready')) && (
             <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-200">Zero-DCE Fallback Notice</p>
+                <p className="font-semibold text-amber-200">Model Availability Notice</p>
                 <p className="text-[11px] text-amber-300/80 mt-0.5">
-                  {zeroDceCondition.error_message || 'Zero-DCE checkpoint missing.'} Displaying Original and CLAHE results normally.
+                  {zeroDceCondition?.status !== 'ready' && `Zero-DCE: ${zeroDceCondition?.error_message || 'Weights missing'}. `}
+                  {retinexCondition?.status !== 'ready' && `Retinexformer: ${retinexCondition?.error_message || 'Weights missing'}. `}
+                  Active conditions are rendered normally.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Measured Processing Time Cards (CLAHE vs Zero-DCE) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Measured Processing Time Cards (All 4 Conditions) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Condition 1: Original */}
             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
               <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold mb-1">
@@ -402,7 +424,7 @@ export function ImageAnalysisPage() {
                     <span className="text-xs font-normal text-amber-400">ms</span>
                   </>
                 ) : (
-                  <span className="text-sm font-sans text-amber-400">Setup Pending</span>
+                  <span className="text-sm font-sans text-amber-400">Unavailable</span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
@@ -410,6 +432,31 @@ export function ImageAnalysisPage() {
                   <>Entropy: <strong className="text-slate-200">{zeroDceCondition.entropy?.toFixed(2)}</strong> ({zeroDceCondition.entropy_gain && zeroDceCondition.entropy_gain > 0 ? `+${zeroDceCondition.entropy_gain}` : zeroDceCondition.entropy_gain} bits)</>
                 ) : (
                   'Deep curve estimation unavailable'
+                )}
+              </p>
+            </div>
+
+            {/* Condition 4: Retinexformer */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-800/40">
+              <div className="flex items-center space-x-2 text-purple-400 text-xs font-semibold mb-1">
+                <Sparkles className="w-4 h-4" />
+                <span>Condition 4: Retinexformer</span>
+              </div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {retinexCondition?.status === 'ready' && retinexCondition.latency_ms !== null && retinexCondition.latency_ms !== undefined ? (
+                  <>
+                    {retinexCondition.latency_ms.toFixed(2)}{' '}
+                    <span className="text-xs font-normal text-purple-400">ms</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-sans text-purple-400">Unavailable</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {retinexCondition?.status === 'ready' ? (
+                  <>Entropy: <strong className="text-slate-200">{retinexCondition.entropy?.toFixed(2)}</strong> ({retinexCondition.entropy_gain && retinexCondition.entropy_gain > 0 ? `+${retinexCondition.entropy_gain}` : retinexCondition.entropy_gain} bits)</>
+                ) : (
+                  'Transformer attention unavailable'
                 )}
               </p>
             </div>
@@ -451,15 +498,40 @@ export function ImageAnalysisPage() {
                   </button>
 
                   <button
-                    onClick={() => setSliderMode('clahe-vs-zerodce')}
-                    disabled={zeroDceCondition?.status !== 'ready'}
+                    onClick={() => setSliderMode('orig-vs-retinex')}
+                    disabled={retinexCondition?.status !== 'ready'}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                      sliderMode === 'clahe-vs-zerodce'
+                      sliderMode === 'orig-vs-retinex'
                         ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 font-bold'
                         : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 disabled:opacity-40 disabled:cursor-not-allowed'
                     }`}
                   >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Original vs. Retinexformer</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSliderMode('clahe-vs-zerodce')}
+                    disabled={zeroDceCondition?.status !== 'ready'}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                      sliderMode === 'clahe-vs-zerodce'
+                        ? 'bg-cyan-600 text-black shadow-md shadow-cyan-600/30 font-bold'
+                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                  >
                     <span>CLAHE vs. Zero-DCE</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSliderMode('zerodce-vs-retinex')}
+                    disabled={zeroDceCondition?.status !== 'ready' || retinexCondition?.status !== 'ready'}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5 ${
+                      sliderMode === 'zerodce-vs-retinex'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
+                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    <span>Zero-DCE vs. Retinexformer</span>
                   </button>
                 </div>
               </div>
@@ -476,8 +548,8 @@ export function ImageAnalysisPage() {
                 entropyGain={sliderEntropyGain}
               />
             ) : (
-              /* Side-by-Side (3 Views) */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              /* Side-by-Side (4 Views) */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* 1. Original */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
@@ -526,6 +598,29 @@ export function ImageAnalysisPage() {
                     ) : (
                       <div className="p-4 text-center text-xs text-amber-400/80">
                         {zeroDceCondition?.error_message || 'Model setup pending'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Retinexformer */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-purple-400">Condition 4: Retinexformer</span>
+                    <span className="text-purple-400 font-mono">
+                      {retinexCondition?.status === 'ready' && retinexCondition.latency_ms !== null && retinexCondition.latency_ms !== undefined ? `${retinexCondition.latency_ms.toFixed(2)} ms` : 'Pending'}
+                    </span>
+                  </div>
+                  <div className="rounded-xl overflow-hidden border border-purple-800 bg-black aspect-video flex items-center justify-center">
+                    {retinexCondition?.status === 'ready' && retinexCondition.image_url ? (
+                      <img
+                        src={retinexCondition.image_url}
+                        alt="Retinexformer Enhanced"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="p-4 text-center text-xs text-purple-400/80">
+                        {retinexCondition?.error_message || 'Model setup pending'}
                       </div>
                     )}
                   </div>
