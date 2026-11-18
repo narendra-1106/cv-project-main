@@ -1,3 +1,12 @@
+import os
+import torch
+
+# Enforce strict single-threaded memory bounds to stay well below 512MB RAM cap on Render
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+torch.set_num_threads(1)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings

@@ -1,4 +1,5 @@
 import os
+import gc
 import base64
 import logging
 from typing import Dict, Any, List
@@ -172,6 +173,7 @@ def analyze_image(
     }
 
     # 5. Condition 3: Zero-DCE Enhancement & Detection
+    gc.collect()
     if zero_dce_enhancer.is_loaded:
         try:
             enhanced_zdce_rgb, zdce_latency_ms, zdce_meta = zero_dce_enhancer.enhance(img_rgb)
@@ -232,6 +234,7 @@ def analyze_image(
         }
 
     # 6. Condition 4: Retinexformer Enhancement & Detection
+    gc.collect()
     if retinexformer_enhancer.is_loaded:
         try:
             enhanced_retinex_rgb, retinex_latency_ms, retinex_meta = retinexformer_enhancer.enhance(img_rgb)
