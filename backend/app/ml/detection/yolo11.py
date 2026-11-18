@@ -97,6 +97,12 @@ class YOLO11Detector:
             self.model = YOLO(str(self.weights_path))
             self.is_loaded = True
             logger.info(f"YOLO11 model loaded successfully from {self.weights_path}")
+            # Warm up JIT model compilation on a tiny dummy tensor so first user request doesn't stall
+            try:
+                import numpy as np
+                self.model.predict(np.zeros((64, 64, 3), dtype=np.uint8), verbose=False)
+            except Exception:
+                pass
         except Exception as e:
             self.load_error = f"Error loading YOLO11 model: {str(e)}"
             logger.error(self.load_error, exc_info=True)

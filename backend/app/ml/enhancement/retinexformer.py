@@ -105,8 +105,8 @@ class RetinexformerEnhancer(BaseEnhancer):
         proc_img = image_rgb
         is_resized = False
         
-        # Adaptive CPU resolution scaling: Cap at 384px on CPU to prevent transformer quadratic latency
-        max_dim = 384 if self.device.type == "cpu" else 768
+        # Adaptive CPU resolution scaling: Cap at 256px on CPU to prevent transformer quadratic latency
+        max_dim = 256 if self.device.type == "cpu" else 768
         if max(orig_h, orig_w) > max_dim:
             scale = max_dim / max(orig_h, orig_w)
             new_w = max(4, int(orig_w * scale) // 4 * 4)

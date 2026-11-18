@@ -59,7 +59,7 @@ def run_yolo_detection(image_rgb: np.ndarray, format_ext: str = ".jpg") -> Dict[
         }
 
     try:
-        ann_rgb, detections, det_latency, summary = yolo11_detector.detect(image_rgb)
+        ann_rgb, detections, det_latency, summary = yolo11_detector.detect(image_rgb, imgsz=480)
         ann_data_url = encode_image_to_base64_url(ann_rgb, format_ext)
         return {
             "annotated_image_url": ann_data_url,
@@ -119,8 +119,8 @@ def analyze_image(
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     height, width, _ = img_rgb.shape
 
-    # Downsample high-res inputs to max 960px to maintain low inference latency on CPU
-    MAX_IMAGE_DIM = 960
+    # Downsample high-res inputs to max 640px to maintain low inference latency on CPU
+    MAX_IMAGE_DIM = 640
     if max(height, width) > MAX_IMAGE_DIM:
         scale = MAX_IMAGE_DIM / max(height, width)
         new_w = int(width * scale)
