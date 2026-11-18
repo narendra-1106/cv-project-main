@@ -30,8 +30,10 @@ wheels/
 *.onnx
 *.bin
 *.engine
-backend/app/ml/weights/*.pt
-backend/app/ml/weights/*.pth
+# Whitelist our core model weights (total ~12MB)
+!backend/app/ml/weights/zero_dce.pth
+!backend/app/ml/weights/retinexformer.pth
+!backend/app/ml/weights/yolo11n.pt
 !backend/app/ml/weights/.gitkeep
 
 # ExDark Data (raw images)

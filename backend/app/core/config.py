@@ -17,11 +17,14 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "default_dev_secret_key_change_in_production"
     
     # CORS Origins (comma-separated string or list)
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,*"
     
     @property
     def cors_origins(self) -> List[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        if "*" in origins:
+            return ["*"]
+        return origins
 
     # Supabase Settings
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")

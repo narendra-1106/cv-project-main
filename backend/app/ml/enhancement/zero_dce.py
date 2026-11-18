@@ -70,11 +70,17 @@ class ZeroDCEEnhancer(BaseEnhancer):
         self._load_model()
 
     def _load_model(self):
-        """Attempts to load model weights cleanly."""
+        """Attempts to load model weights cleanly, downloading from upstream if missing."""
         if not os.path.exists(self.weights_path):
-            self.is_loaded = False
-            self.load_error = f"Checkpoint file not found at {self.weights_path}"
-            return
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(self.weights_path)), exist_ok=True)
+                url = "https://github.com/Li-Chongyi/Zero-DCE/raw/master/Zero-DCE_code/snapshots/Epoch99.pth"
+                import urllib.request
+                urllib.request.urlretrieve(url, self.weights_path)
+            except Exception as dl_err:
+                self.is_loaded = False
+                self.load_error = f"Checkpoint file not found at {self.weights_path} and auto-download failed: {dl_err}"
+                return
 
         try:
             model = enhance_net_nopool().to(self.device)
