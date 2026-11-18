@@ -11,7 +11,10 @@ import {
   Maximize2,
   Zap,
   Info,
-  Sliders
+  Sliders,
+  Target,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { analysisService } from '../services/analysisService';
 import { AnalysisResponse, ConditionResult } from '../types/analysis';
@@ -32,6 +35,7 @@ export function ImageAnalysisPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side'>('slider');
   const [sliderMode, setSliderMode] = useState<SliderComparisonMode>('orig-vs-clahe');
+  const [showDetections, setShowDetections] = useState<boolean>(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,9 +84,12 @@ export function ImageAnalysisPage() {
       const result = await analysisService.analyzeImage(selectedFile);
       setAnalysisResult(result);
       
-      // Auto-switch slider to Zero-DCE if available, or keep CLAHE
+      // Auto-switch slider to Retinexformer or Zero-DCE if available, or keep CLAHE
+      const retinex = result.conditions.find(c => c.id === 'retinexformer');
       const zdce = result.conditions.find(c => c.id === 'zero_dce');
-      if (zdce && zdce.status === 'ready') {
+      if (retinex && retinex.status === 'ready') {
+        setSliderMode('orig-vs-retinex');
+      } else if (zdce && zdce.status === 'ready') {
         setSliderMode('orig-vs-zerodce');
       } else {
         setSliderMode('orig-vs-clahe');
@@ -140,40 +147,69 @@ export function ImageAnalysisPage() {
   const zeroDceCondition = analysisResult?.conditions.find((c) => c.id === 'zero_dce');
   const retinexCondition = analysisResult?.conditions.find((c) => c.id === 'retinexformer');
 
-  // Determine current images for slider based on active sliderMode
-  let sliderLeftImg = originalCondition?.image_url || '';
-  let sliderRightImg = claheCondition?.image_url || '';
-  let sliderLeftLabel = 'Condition 1: Original Low-Light';
-  let sliderRightLabel = 'Condition 2: CLAHE Enhanced';
+  // Helper to select clean vs annotated image based on toggle
+  const getDisplayImage = (cond: ConditionResult | undefined) => {
+    if (!cond) return '';
+    if (showDetections && cond.annotated_image_url) {
+      return cond.annotated_image_url;
+    }
+    return cond.image_url || '';
+  };
+
+  // Determine current images for slider based on active sliderMode and detection toggle
+  let sliderLeftImg = getDisplayImage(originalCondition);
+  let sliderRightImg = getDisplayImage(claheCondition);
+  let sliderLeftLabel = showDetections 
+    ? `Condition 1: Original (${originalCondition?.detection_count ?? 0} detected)` 
+    : 'Condition 1: Original Low-Light';
+  let sliderRightLabel = showDetections 
+    ? `Condition 2: CLAHE (${claheCondition?.detection_count ?? 0} detected)` 
+    : 'Condition 2: CLAHE Enhanced';
   let sliderLatency: number | null | undefined = claheCondition?.latency_ms;
   let sliderEntropyGain: number | undefined = claheCondition?.entropy_gain;
 
   if (sliderMode === 'orig-vs-zerodce' && zeroDceCondition?.image_url) {
-    sliderLeftImg = originalCondition?.image_url || '';
-    sliderRightImg = zeroDceCondition.image_url;
-    sliderLeftLabel = 'Condition 1: Original Low-Light';
-    sliderRightLabel = 'Condition 3: Zero-DCE Enhanced';
+    sliderLeftImg = getDisplayImage(originalCondition);
+    sliderRightImg = getDisplayImage(zeroDceCondition);
+    sliderLeftLabel = showDetections 
+      ? `Condition 1: Original (${originalCondition?.detection_count ?? 0} detected)` 
+      : 'Condition 1: Original Low-Light';
+    sliderRightLabel = showDetections 
+      ? `Condition 3: Zero-DCE (${zeroDceCondition.detection_count ?? 0} detected)` 
+      : 'Condition 3: Zero-DCE Enhanced';
     sliderLatency = zeroDceCondition.latency_ms;
     sliderEntropyGain = zeroDceCondition.entropy_gain;
   } else if (sliderMode === 'orig-vs-retinex' && retinexCondition?.image_url) {
-    sliderLeftImg = originalCondition?.image_url || '';
-    sliderRightImg = retinexCondition.image_url;
-    sliderLeftLabel = 'Condition 1: Original Low-Light';
-    sliderRightLabel = 'Condition 4: Retinexformer Enhanced';
+    sliderLeftImg = getDisplayImage(originalCondition);
+    sliderRightImg = getDisplayImage(retinexCondition);
+    sliderLeftLabel = showDetections 
+      ? `Condition 1: Original (${originalCondition?.detection_count ?? 0} detected)` 
+      : 'Condition 1: Original Low-Light';
+    sliderRightLabel = showDetections 
+      ? `Condition 4: Retinexformer (${retinexCondition.detection_count ?? 0} detected)` 
+      : 'Condition 4: Retinexformer Enhanced';
     sliderLatency = retinexCondition.latency_ms;
     sliderEntropyGain = retinexCondition.entropy_gain;
   } else if (sliderMode === 'clahe-vs-zerodce' && claheCondition?.image_url && zeroDceCondition?.image_url) {
-    sliderLeftImg = claheCondition.image_url;
-    sliderRightImg = zeroDceCondition.image_url;
-    sliderLeftLabel = 'Condition 2: CLAHE (Classical)';
-    sliderRightLabel = 'Condition 3: Zero-DCE (Deep Curves)';
+    sliderLeftImg = getDisplayImage(claheCondition);
+    sliderRightImg = getDisplayImage(zeroDceCondition);
+    sliderLeftLabel = showDetections 
+      ? `Condition 2: CLAHE (${claheCondition.detection_count ?? 0} detected)` 
+      : 'Condition 2: CLAHE (Classical)';
+    sliderRightLabel = showDetections 
+      ? `Condition 3: Zero-DCE (${zeroDceCondition.detection_count ?? 0} detected)` 
+      : 'Condition 3: Zero-DCE (Deep Curves)';
     sliderLatency = zeroDceCondition.latency_ms;
     sliderEntropyGain = zeroDceCondition.entropy_gain;
   } else if (sliderMode === 'zerodce-vs-retinex' && zeroDceCondition?.image_url && retinexCondition?.image_url) {
-    sliderLeftImg = zeroDceCondition.image_url;
-    sliderRightImg = retinexCondition.image_url;
-    sliderLeftLabel = 'Condition 3: Zero-DCE (Curves)';
-    sliderRightLabel = 'Condition 4: Retinexformer (SOTA)';
+    sliderLeftImg = getDisplayImage(zeroDceCondition);
+    sliderRightImg = getDisplayImage(retinexCondition);
+    sliderLeftLabel = showDetections 
+      ? `Condition 3: Zero-DCE (${zeroDceCondition.detection_count ?? 0} detected)` 
+      : 'Condition 3: Zero-DCE (Curves)';
+    sliderRightLabel = showDetections 
+      ? `Condition 4: Retinexformer (${retinexCondition.detection_count ?? 0} detected)` 
+      : 'Condition 4: Retinexformer (SOTA)';
     sliderLatency = retinexCondition.latency_ms;
     sliderEntropyGain = retinexCondition.entropy_gain;
   }
@@ -183,13 +219,13 @@ export function ImageAnalysisPage() {
       {/* Page Title */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
-          <span>Image Analysis & Multi-Condition Enhancement</span>
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-400 border border-purple-800 font-mono">
-            Phase 5: All 4 Conditions Active
+          <span>Image Analysis, Enhancement & YOLO11 Object Detection</span>
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">
+            YOLO11 Active
           </span>
         </h2>
         <p className="text-sm text-slate-400 mt-1">
-          Upload any dark low-light image to evaluate all four benchmark conditions simultaneously: Original, CLAHE, Zero-DCE, and Retinexformer.
+          Upload any dark low-light image to evaluate all four benchmark conditions simultaneously (Original, CLAHE, Zero-DCE, Retinexformer) and quantify object detection performance with YOLO11 on ExDark categories.
         </p>
       </div>
 
@@ -269,7 +305,7 @@ export function ImageAnalysisPage() {
                   </p>
                   <p className="text-emerald-400 flex items-center pt-1 font-medium">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    Ready for CLAHE & Zero-DCE comparative evaluation
+                    Ready for Multi-Condition Enhancement & YOLO11 Detection
                   </p>
                 </div>
 
@@ -278,17 +314,17 @@ export function ImageAnalysisPage() {
                   <button
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}
-                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-amber-500 hover:from-cyan-400 hover:to-amber-400 text-black font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-amber-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-black font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
                     {isAnalyzing ? (
                       <>
                         <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span>Running All 4 Enhancements (CLAHE, Zero-DCE & Retinexformer)...</span>
+                        <span>Running Enhancements & YOLO11 Detection...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        <span>Analyze & Enhance Image</span>
+                        <span>Analyze, Enhance & Detect Objects</span>
                       </>
                     )}
                   </button>
@@ -327,18 +363,41 @@ export function ImageAnalysisPage() {
                   Comparative Analysis: {analysisResult.filename}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Original Dimensions: {analysisResult.image_dimensions.width} × {analysisResult.image_dimensions.height} px
+                  Dimensions: {analysisResult.image_dimensions.width} × {analysisResult.image_dimensions.height} px • Downstream Model: YOLO11-Nano (ExDark taxonomy)
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Detection Overlay Toggle */}
+              <button
+                onClick={() => setShowDetections(!showDetections)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 border ${
+                  showDetections
+                    ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-sm shadow-emerald-500/30'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+                title="Toggle YOLO11 bounding boxes and labels"
+              >
+                {showDetections ? (
+                  <>
+                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Detections Visible</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Show Detections</span>
+                  </>
+                )}
+              </button>
+
               {/* Toggle Slider vs Side-by-side */}
               <div className="flex rounded-lg bg-slate-950 border border-slate-800 p-0.5 text-xs">
                 <button
                   onClick={() => setViewMode('slider')}
                   className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
-                    viewMode === 'slider' ? 'bg-cyan-600 text-black' : 'text-slate-400 hover:text-white'
+                    viewMode === 'slider' ? 'bg-cyan-600 text-black font-bold' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
@@ -347,7 +406,7 @@ export function ImageAnalysisPage() {
                 <button
                   onClick={() => setViewMode('side-by-side')}
                   className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
-                    viewMode === 'side-by-side' ? 'bg-cyan-600 text-black' : 'text-slate-400 hover:text-white'
+                    viewMode === 'side-by-side' ? 'bg-cyan-600 text-black font-bold' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Columns className="w-3.5 h-3.5" />
@@ -362,103 +421,6 @@ export function ImageAnalysisPage() {
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Upload New</span>
               </button>
-            </div>
-          </div>
-
-          {/* Warning Banner if Zero-DCE or Retinexformer failed/missing */}
-          {((zeroDceCondition && zeroDceCondition.status !== 'ready') || (retinexCondition && retinexCondition.status !== 'ready')) && (
-            <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
-              <div>
-                <p className="font-semibold text-amber-200">Model Availability Notice</p>
-                <p className="text-[11px] text-amber-300/80 mt-0.5">
-                  {zeroDceCondition?.status !== 'ready' && `Zero-DCE: ${zeroDceCondition?.error_message || 'Weights missing'}. `}
-                  {retinexCondition?.status !== 'ready' && `Retinexformer: ${retinexCondition?.error_message || 'Weights missing'}. `}
-                  Active conditions are rendered normally.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Measured Processing Time Cards (All 4 Conditions) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Condition 1: Original */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-              <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold mb-1">
-                <Clock className="w-4 h-4" />
-                <span>Condition 1: Original Baseline</span>
-              </div>
-              <div className="text-2xl font-extrabold text-white font-mono">
-                0.00 <span className="text-xs font-normal text-slate-400">ms</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Entropy: <strong className="text-slate-200">{originalCondition?.entropy?.toFixed(2)}</strong> bits
-              </p>
-            </div>
-
-            {/* Condition 2: CLAHE */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-800/40">
-              <div className="flex items-center space-x-2 text-blue-400 text-xs font-semibold mb-1">
-                <Sparkles className="w-4 h-4" />
-                <span>Condition 2: CLAHE Latency</span>
-              </div>
-              <div className="text-2xl font-extrabold text-white font-mono">
-                {claheCondition?.latency_ms?.toFixed(2)}{' '}
-                <span className="text-xs font-normal text-blue-400">ms</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Entropy: <strong className="text-slate-200">{claheCondition?.entropy?.toFixed(2)}</strong> ({claheCondition?.entropy_gain && claheCondition.entropy_gain > 0 ? `+${claheCondition.entropy_gain}` : claheCondition?.entropy_gain} bits)
-              </p>
-            </div>
-
-            {/* Condition 3: Zero-DCE */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-800/40">
-              <div className="flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-1">
-                <Zap className="w-4 h-4" />
-                <span>Condition 3: Zero-DCE Latency</span>
-              </div>
-              <div className="text-2xl font-extrabold text-white font-mono">
-                {zeroDceCondition?.status === 'ready' && zeroDceCondition.latency_ms !== null && zeroDceCondition.latency_ms !== undefined ? (
-                  <>
-                    {zeroDceCondition.latency_ms.toFixed(2)}{' '}
-                    <span className="text-xs font-normal text-amber-400">ms</span>
-                  </>
-                ) : (
-                  <span className="text-sm font-sans text-amber-400">Unavailable</span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                {zeroDceCondition?.status === 'ready' ? (
-                  <>Entropy: <strong className="text-slate-200">{zeroDceCondition.entropy?.toFixed(2)}</strong> ({zeroDceCondition.entropy_gain && zeroDceCondition.entropy_gain > 0 ? `+${zeroDceCondition.entropy_gain}` : zeroDceCondition.entropy_gain} bits)</>
-                ) : (
-                  'Deep curve estimation unavailable'
-                )}
-              </p>
-            </div>
-
-            {/* Condition 4: Retinexformer */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-800/40">
-              <div className="flex items-center space-x-2 text-purple-400 text-xs font-semibold mb-1">
-                <Sparkles className="w-4 h-4" />
-                <span>Condition 4: Retinexformer</span>
-              </div>
-              <div className="text-2xl font-extrabold text-white font-mono">
-                {retinexCondition?.status === 'ready' && retinexCondition.latency_ms !== null && retinexCondition.latency_ms !== undefined ? (
-                  <>
-                    {retinexCondition.latency_ms.toFixed(2)}{' '}
-                    <span className="text-xs font-normal text-purple-400">ms</span>
-                  </>
-                ) : (
-                  <span className="text-sm font-sans text-purple-400">Unavailable</span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                {retinexCondition?.status === 'ready' ? (
-                  <>Entropy: <strong className="text-slate-200">{retinexCondition.entropy?.toFixed(2)}</strong> ({retinexCondition.entropy_gain && retinexCondition.entropy_gain > 0 ? `+${retinexCondition.entropy_gain}` : retinexCondition.entropy_gain} bits)</>
-                ) : (
-                  'Transformer attention unavailable'
-                )}
-              </p>
             </div>
           </div>
 
@@ -554,11 +516,13 @@ export function ImageAnalysisPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-300">Condition 1: Original</span>
-                    <span className="text-slate-500 font-mono">0.0 ms</span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">
+                      {originalCondition?.detection_count ?? 0} objs
+                    </span>
                   </div>
-                  <div className="rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video flex items-center justify-center">
+                  <div className="rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video flex items-center justify-center relative">
                     <img
-                      src={originalCondition?.image_url || ''}
+                      src={getDisplayImage(originalCondition)}
                       alt="Original"
                       className="w-full h-full object-contain"
                     />
@@ -569,11 +533,13 @@ export function ImageAnalysisPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-blue-400">Condition 2: CLAHE</span>
-                    <span className="text-blue-400 font-mono">{claheCondition?.latency_ms?.toFixed(2)} ms</span>
+                    <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 font-mono text-[11px]">
+                      {claheCondition?.detection_count ?? 0} objs
+                    </span>
                   </div>
-                  <div className="rounded-xl overflow-hidden border border-blue-800 bg-black aspect-video flex items-center justify-center">
+                  <div className="rounded-xl overflow-hidden border border-blue-800 bg-black aspect-video flex items-center justify-center relative">
                     <img
-                      src={claheCondition?.image_url || ''}
+                      src={getDisplayImage(claheCondition)}
                       alt="CLAHE Enhanced"
                       className="w-full h-full object-contain"
                     />
@@ -584,14 +550,14 @@ export function ImageAnalysisPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-amber-400">Condition 3: Zero-DCE</span>
-                    <span className="text-amber-400 font-mono">
-                      {zeroDceCondition?.status === 'ready' && zeroDceCondition.latency_ms !== null && zeroDceCondition.latency_ms !== undefined ? `${zeroDceCondition.latency_ms.toFixed(2)} ms` : 'Pending'}
+                    <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono text-[11px]">
+                      {zeroDceCondition?.detection_count ?? 0} objs
                     </span>
                   </div>
-                  <div className="rounded-xl overflow-hidden border border-amber-800 bg-black aspect-video flex items-center justify-center">
+                  <div className="rounded-xl overflow-hidden border border-amber-800 bg-black aspect-video flex items-center justify-center relative">
                     {zeroDceCondition?.status === 'ready' && zeroDceCondition.image_url ? (
                       <img
-                        src={zeroDceCondition.image_url}
+                        src={getDisplayImage(zeroDceCondition)}
                         alt="Zero-DCE Enhanced"
                         className="w-full h-full object-contain"
                       />
@@ -607,14 +573,14 @@ export function ImageAnalysisPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-purple-400">Condition 4: Retinexformer</span>
-                    <span className="text-purple-400 font-mono">
-                      {retinexCondition?.status === 'ready' && retinexCondition.latency_ms !== null && retinexCondition.latency_ms !== undefined ? `${retinexCondition.latency_ms.toFixed(2)} ms` : 'Pending'}
+                    <span className="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono text-[11px]">
+                      {retinexCondition?.detection_count ?? 0} objs
                     </span>
                   </div>
-                  <div className="rounded-xl overflow-hidden border border-purple-800 bg-black aspect-video flex items-center justify-center">
+                  <div className="rounded-xl overflow-hidden border border-purple-800 bg-black aspect-video flex items-center justify-center relative">
                     {retinexCondition?.status === 'ready' && retinexCondition.image_url ? (
                       <img
-                        src={retinexCondition.image_url}
+                        src={getDisplayImage(retinexCondition)}
                         alt="Retinexformer Enhanced"
                         className="w-full h-full object-contain"
                       />
@@ -627,6 +593,191 @@ export function ImageAnalysisPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* YOLO11 Detection Benchmark Metrics Card */}
+          <div className="rounded-2xl border border-slate-800 bg-[#0E131F] p-6 shadow-xl space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-2.5">
+                <Target className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    YOLO11 Object Detection Benchmark (ExDark Taxonomy)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Comparative detection yield, classification confidence, and detected categories across all enhancement pipelines
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 text-xs text-slate-400">
+                <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 font-mono">
+                  Confidence Threshold: 0.25
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 font-mono">
+                  IoU: 0.45
+                </span>
+              </div>
+            </div>
+
+            {/* 4 Conditions Detection Comparison Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {analysisResult.conditions.map((c) => {
+                const count = c.detection_count ?? 0;
+                const origCount = originalCondition?.detection_count ?? 0;
+                const diff = count - origCount;
+                const avgConf = c.avg_confidence ? (c.avg_confidence * 100).toFixed(1) : '0.0';
+                const detections = c.detections || [];
+
+                return (
+                  <div
+                    key={c.id}
+                    className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-semibold text-slate-300">{c.name.split(':')[0]}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {c.detection_latency_ms ? `${c.detection_latency_ms.toFixed(1)} ms` : '--'}
+                        </span>
+                      </div>
+
+                      {/* Objects Found Counter */}
+                      <div className="flex items-baseline space-x-2">
+                        <span className="text-3xl font-extrabold text-white font-mono">{count}</span>
+                        <span className="text-xs text-slate-400">objects detected</span>
+                        {c.id !== 'original' && (
+                          <span
+                            className={`text-xs font-semibold font-mono ${
+                              diff > 0
+                                ? 'text-emerald-400'
+                                : diff < 0
+                                ? 'text-rose-400'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Average Confidence */}
+                      <div className="mt-2 text-xs flex justify-between text-slate-400">
+                        <span>Avg Confidence:</span>
+                        <span className="font-mono text-cyan-300 font-semibold">{avgConf}%</span>
+                      </div>
+                    </div>
+
+                    {/* Detected Object Class Badges */}
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <span className="text-[10px] text-slate-400 block mb-1.5 font-medium">
+                        Identified Entities:
+                      </span>
+                      {detections.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                          {detections.map((d, idx) => (
+                            <span
+                              key={idx}
+                              style={{ borderColor: d.color, color: d.color }}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-slate-950 border font-medium flex items-center space-x-1"
+                            >
+                              <span>{d.class_name}</span>
+                              <span className="opacity-70 font-mono">{(d.confidence * 100).toFixed(0)}%</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 italic">
+                          No objects detected above threshold
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Measured Processing Time Cards (All 4 Conditions) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Condition 1: Original */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold mb-1">
+                <Clock className="w-4 h-4" />
+                <span>Condition 1: Original Baseline</span>
+              </div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                0.00 <span className="text-xs font-normal text-slate-400">ms</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Entropy: <strong className="text-slate-200">{originalCondition?.entropy?.toFixed(2)}</strong> bits
+              </p>
+            </div>
+
+            {/* Condition 2: CLAHE */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-800/40">
+              <div className="flex items-center space-x-2 text-blue-400 text-xs font-semibold mb-1">
+                <Sparkles className="w-4 h-4" />
+                <span>Condition 2: CLAHE Latency</span>
+              </div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {claheCondition?.latency_ms?.toFixed(2)}{' '}
+                <span className="text-xs font-normal text-blue-400">ms</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Entropy: <strong className="text-slate-200">{claheCondition?.entropy?.toFixed(2)}</strong> ({claheCondition?.entropy_gain && claheCondition.entropy_gain > 0 ? `+${claheCondition.entropy_gain}` : claheCondition?.entropy_gain} bits)
+              </p>
+            </div>
+
+            {/* Condition 3: Zero-DCE */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-800/40">
+              <div className="flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-1">
+                <Zap className="w-4 h-4" />
+                <span>Condition 3: Zero-DCE Latency</span>
+              </div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {zeroDceCondition?.status === 'ready' && zeroDceCondition.latency_ms !== null && zeroDceCondition.latency_ms !== undefined ? (
+                  <>
+                    {zeroDceCondition.latency_ms.toFixed(2)}{' '}
+                    <span className="text-xs font-normal text-amber-400">ms</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-sans text-amber-400">Unavailable</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {zeroDceCondition?.status === 'ready' ? (
+                  <>Entropy: <strong className="text-slate-200">{zeroDceCondition.entropy?.toFixed(2)}</strong> ({zeroDceCondition.entropy_gain && zeroDceCondition.entropy_gain > 0 ? `+${zeroDceCondition.entropy_gain}` : zeroDceCondition.entropy_gain} bits)</>
+                ) : (
+                  'Deep curve estimation unavailable'
+                )}
+              </p>
+            </div>
+
+            {/* Condition 4: Retinexformer */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-800/40">
+              <div className="flex items-center space-x-2 text-purple-400 text-xs font-semibold mb-1">
+                <Sparkles className="w-4 h-4" />
+                <span>Condition 4: Retinexformer</span>
+              </div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {retinexCondition?.status === 'ready' && retinexCondition.latency_ms !== null && retinexCondition.latency_ms !== undefined ? (
+                  <>
+                    {retinexCondition.latency_ms.toFixed(2)}{' '}
+                    <span className="text-xs font-normal text-purple-400">ms</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-sans text-purple-400">Unavailable</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {retinexCondition?.status === 'ready' ? (
+                  <>Entropy: <strong className="text-slate-200">{retinexCondition.entropy?.toFixed(2)}</strong> ({retinexCondition.entropy_gain && retinexCondition.entropy_gain > 0 ? `+${retinexCondition.entropy_gain}` : retinexCondition.entropy_gain} bits)</>
+                ) : (
+                  'Transformer attention unavailable'
+                )}
+              </p>
+            </div>
           </div>
 
           {/* The Four Comparative Conditions Status Grid */}
@@ -673,7 +824,7 @@ export function ImageAnalysisPage() {
                     <div className="pt-3 border-t border-slate-800/80 text-[11px]">
                       {isReady ? (
                         <div className="flex justify-between items-center text-slate-300">
-                          <span>Processing Time:</span>
+                          <span>Enhancement Latency:</span>
                           <span className="font-mono text-emerald-400 font-bold">
                             {c.latency_ms !== null ? `${c.latency_ms?.toFixed(2)} ms` : '0.00 ms'}
                           </span>
