@@ -29,11 +29,23 @@ class RetinexformerEnhancer(BaseEnhancer):
         self._load_model()
 
     def _load_model(self):
-        """Attempts to instantiate Retinexformer and load pretrained weights."""
+        """Attempts to instantiate Retinexformer and load pretrained weights, auto-downloading if missing."""
         if not os.path.exists(self.weights_path):
-            self.is_loaded = False
-            self.load_error = f"Checkpoint file not found at {self.weights_path}"
-            return
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(self.weights_path)), exist_ok=True)
+                url = "https://huggingface.co/CaiYuanhao/Retinexformer/resolve/main/LOL_v1.pth"
+                import urllib.request
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=120) as resp, open(self.weights_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+            except Exception as dl_err:
+                self.is_loaded = False
+                self.load_error = f"Checkpoint not found at {self.weights_path} and auto-download failed: {dl_err}"
+                return
 
         try:
             # Hyperparameters matching the official LOL-v1 pretrained checkpoint

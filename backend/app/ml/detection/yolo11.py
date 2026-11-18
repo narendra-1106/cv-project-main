@@ -75,9 +75,23 @@ class YOLO11Detector:
     def _load_model(self):
         try:
             if not self.weights_path.is_file():
-                self.load_error = f"YOLO11 weights not found at {self.weights_path.resolve()}"
-                logger.warning(self.load_error)
-                return
+                # Auto-download YOLO11-nano weights if missing
+                try:
+                    self.weights_path.parent.mkdir(parents=True, exist_ok=True)
+                    url = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt"
+                    import urllib.request
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=120) as resp, open(self.weights_path, "wb") as f:
+                        while True:
+                            chunk = resp.read(65536)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                    logger.info(f"YOLO11 weights downloaded to {self.weights_path}")
+                except Exception as dl_err:
+                    self.load_error = f"YOLO11 weights not found at {self.weights_path.resolve()} and download failed: {dl_err}"
+                    logger.warning(self.load_error)
+                    return
 
             from ultralytics import YOLO
             self.model = YOLO(str(self.weights_path))

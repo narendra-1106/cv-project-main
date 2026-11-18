@@ -1,12 +1,23 @@
 services:
   - type: web
-    name: luxvision-ai
-    env: docker
+    name: luxvision-ai-backend
+    env: python
     plan: free
     region: oregon
-    dockerfilePath: Dockerfile
-    dockerContext: .
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip
+      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      pip install -r requirements.txt
+      python download_weights.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
-      - key: PORT
-        value: 8000
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: DEVICE
+        value: cpu
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12.0"
