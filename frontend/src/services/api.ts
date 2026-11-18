@@ -7,8 +7,9 @@ import { ApiError } from '../types/api';
  * In production/deployment, automatically uses relative '/api/v1' on same domain.
  */
 const getBaseUrl = (): string => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && !envUrl.includes('luxvision-backend')) {
+    return envUrl;
   }
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://127.0.0.1:8000/api/v1';
@@ -54,7 +55,10 @@ apiClient.interceptors.response.use(
     if (error.code === 'ECONNABORTED') {
       normalizedError.message = 'Request timed out while connecting to the backend server.';
     } else if (!error.response) {
-      normalizedError.message = 'Backend server is unreachable. Please verify that FastAPI is running on port 8000.';
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      normalizedError.message = isLocal
+        ? 'Backend server is unreachable. Please verify that FastAPI is running on port 8000.'
+        : 'Backend server is connecting to Render. Note: Render free tier takes ~30-50s to wake up on first request. Please wait a moment and retry.';
     } else if (error.response.data && typeof error.response.data === 'object') {
       const data: any = error.response.data;
       normalizedError.message = data.message || data.detail || `Server returned error ${error.response.status}`;
