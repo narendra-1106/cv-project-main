@@ -21,16 +21,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Root endpoint for quick verification
-@app.get("/", tags=["Root"])
-async def root():
-    return {
-        "message": "Welcome to LUXVISION AI API",
-        "version": settings.APP_VERSION,
-        "docs_url": "/docs",
-        "health_check": f"{settings.API_V1_PREFIX}/health"
-    }
-
 # Include API v1 Router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+# Mount frontend production build if available (single-container / unified deployment)
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+else:
+    @app.get("/", tags=["Root"])
+    async def root():
+        return {
+            "message": "Welcome to LUXVISION AI API",
+            "version": settings.APP_VERSION,
+            "docs_url": "/docs",
+            "health_check": f"{settings.API_V1_PREFIX}/health"
+        }
+
+
 

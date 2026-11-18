@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: luxvision-ai
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PORT
+        value: 8000

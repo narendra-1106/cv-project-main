@@ -3,9 +3,20 @@ import { ApiError } from '../types/api';
 
 /**
  * Base URL configured from environment variables.
- * Defaults to local development endpoint if undefined.
+ * In development (port 5173), defaults to local backend at 8000.
+ * In production/deployment, automatically uses relative '/api/v1' on same domain.
  */
-const BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+const getBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.port === '5173') {
+    return 'http://127.0.0.1:8000/api/v1';
+  }
+  return '/api/v1';
+};
+
+const BASE_URL: string = getBaseUrl();
 
 /**
  * Centralized Axios client instance for all backend requests.

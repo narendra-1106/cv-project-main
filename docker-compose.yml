@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  luxvision-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: luxvision-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ENVIRONMENT=production
+    restart: unless-stopped
