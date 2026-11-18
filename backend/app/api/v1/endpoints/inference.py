@@ -118,6 +118,16 @@ def analyze_image(
     # Convert to standard RGB format
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     height, width, _ = img_rgb.shape
+
+    # Downsample high-res inputs to max 960px to maintain low inference latency on CPU
+    MAX_IMAGE_DIM = 960
+    if max(height, width) > MAX_IMAGE_DIM:
+        scale = MAX_IMAGE_DIM / max(height, width)
+        new_w = int(width * scale)
+        new_h = int(height * scale)
+        img_rgb = cv2.resize(img_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        height, width, _ = img_rgb.shape
+
     save_ext = ext if ext in [".jpg", ".png"] else ".jpg"
 
     # 3. Baseline: Condition 1 (Original)

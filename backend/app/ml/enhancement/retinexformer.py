@@ -102,26 +102,43 @@ class RetinexformerEnhancer(BaseEnhancer):
         start_time = time.perf_counter()
 
         orig_h, orig_w = image_rgb.shape[:2]
+        proc_img = image_rgb
+        is_resized = False
+        
+        # Adaptive CPU resolution scaling: Cap at 384px on CPU to prevent transformer quadratic latency
+        max_dim = 384 if self.device.type == "cpu" else 768
+        if max(orig_h, orig_w) > max_dim:
+            scale = max_dim / max(orig_h, orig_w)
+            new_w = max(4, int(orig_w * scale) // 4 * 4)
+            new_h = max(4, int(orig_h * scale) // 4 * 4)
+            proc_img = cv2.resize(image_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            is_resized = True
+
+        h, w = proc_img.shape[:2]
 
         # Step 1: Normalize uint8 [0, 255] to float32 [0.0, 1.0] tensor
-        img_float = (image_rgb / 255.0).astype(np.float32)
+        img_float = (proc_img / 255.0).astype(np.float32)
         tensor_in = torch.from_numpy(img_float).permute(2, 0, 1).unsqueeze(0).to(self.device)
 
         # Step 2: Pad input to multiples of 4 (required by transformer downsampling stages)
-        pad_h = (-orig_h) % 4
-        pad_w = (-orig_w) % 4
+        pad_h = (-h) % 4
+        pad_w = (-w) % 4
         if pad_h > 0 or pad_w > 0:
-            mode = "reflect" if orig_h > pad_h and orig_w > pad_w else "replicate"
+            mode = "reflect" if h > pad_h and w > pad_w else "replicate"
             tensor_in = F.pad(tensor_in, (0, pad_w, 0, pad_h), mode=mode)
 
         # Step 3: Forward pass without gradient calculation
         with torch.no_grad():
             output_tensor = self.model(tensor_in)
 
-        # Step 4: Crop back to original dimensions and clamp to [0.0, 1.0]
-        output_tensor = output_tensor[..., :orig_h, :orig_w].clamp(0.0, 1.0)
+        # Step 4: Crop back to dimensions and clamp to [0.0, 1.0]
+        output_tensor = output_tensor[..., :h, :w].clamp(0.0, 1.0)
         output_np = output_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy()
         enhanced_rgb = (output_np * 255.0).astype(np.uint8)
+
+        # Restore original dimensions if scaled
+        if is_resized:
+            enhanced_rgb = cv2.resize(enhanced_rgb, (orig_w, orig_h), interpolation=cv2.INTER_LANCZOS4)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 

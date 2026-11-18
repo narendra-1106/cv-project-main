@@ -342,6 +342,16 @@ export function ImageAnalysisPage() {
             </div>
           )}
 
+          {isAnalyzing && (
+            <div className="mt-4 p-3 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-cyan-300 text-xs flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <span>Running benchmark pipeline: CLAHE, Zero-DCE, Retinexformer & YOLO11 on CPU...</span>
+              </div>
+              <span className="text-[11px] text-cyan-400/70 font-mono">~10-15s</span>
+            </div>
+          )}
+
           {error && (
             <div className="mt-4 p-4 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
