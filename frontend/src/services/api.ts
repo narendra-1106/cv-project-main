@@ -24,9 +24,8 @@ const BASE_URL: string = getBaseUrl();
  */
 export const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000,
+  timeout: 180000,
   headers: {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
   },
 });

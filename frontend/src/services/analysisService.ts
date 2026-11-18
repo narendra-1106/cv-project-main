@@ -9,11 +9,7 @@ export const analysisService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post<AnalysisResponse>('/inference/analyze', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiClient.post<AnalysisResponse>('/inference/analyze', formData);
 
     return response.data;
   },
